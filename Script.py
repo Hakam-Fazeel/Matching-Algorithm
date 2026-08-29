@@ -14,8 +14,8 @@ def match_mentors(mentors_file, mentees_file):
     mentees_df = pd.read_csv(mentees_file)
 
   # Standardize column names based on typical MS Forms export formats
-  mentor_email_col = 'Email1' if 'Email1' in mentors_df.columns else 'Email'
-  mentee_email_col = 'Email1' if 'Email1' in mentees_df.columns else 'Email'
+  mentor_email_col = 'Email2'
+  mentee_email_col = 'Email2'
 
   mentor_gender_col = 'Gender'
   mentee_gender_col = 'Gender'
