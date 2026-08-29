@@ -1,124 +1,181 @@
 import pandas as pd
-import csv
 
-# --- CONFIGURATION ---
-# Updated file names to reference the new files
-MENTOR_FILE = "UCAS mentor form.xlsx"
-MENTEE_FILE = "UCAS mentee form.xlsx"
-OUTPUT_FILE = "matched_mentors.csv"
-
-# Updated Column Names based on the new form structure
-MENTOR_EMAIL = "Email2" # Update if mentors use a different email column header
-MENTOR_MAX = "Max Mentees" 
-
-MENTEE_EMAIL = "email2"
-MENTEE_ALT_OK = "Okay with someone in Faculty but not desired course? " # Matches the header shown in the mentee image
-
-# Similarity Dictionary: Define which courses are acceptable alternatives
-# Note: Lowercase mapping is used here to avoid case-sensitivity issues
-SIMILAR_COURSES = {
-    'eee': ['eie'],
-    'eie': ['eee'],
-    'mecheng': ['aeroeng', 'civileng', 'eie'], # Added 'eie' as an example
-    'medicine': ['biomed'],
-    'physics': ['maths', 'chemistry']
-}
-
-def consolidate_course(row):
-    """
-    Extracts the actual course by checking the branched columns.
-    It returns the first non-empty value found in the specific faculty columns.
-    """
-    course_columns = ['Engineerings', 'Medicines', 'NatSci', 'Business']
+def run_mentorship_matching(mentor_file, mentee_file, 
+                            output_matches="mentor_mentee_matches.csv",
+                            output_unmatched_mentees="unmatched_mentees.csv",
+                            output_available_mentors="available_mentors.csv"):
     
-    for col in course_columns:
-        if col in row and pd.notna(row[col]) and str(row[col]).strip() != '':
-            # Return lowercase and stripped text for robust matching
-            return str(row[col]).strip().lower() 
-            
-    return "unknown"
-
-def main():
-    # 1. Load Data
-    try:
-        mentors_df = pd.read_excel(MENTOR_FILE)
-        mentees_df = pd.read_excel(MENTEE_FILE)
-    except FileNotFoundError as e:
-        print(f"Error loading files. Ensure the files are in the same folder as this script. Details: {e}")
-        return
-
-    # 2. Organize Mentors (Applying the course consolidation)
-    mentors = []
-    for _, row in mentors_df.iterrows():
-        # Assuming Mentors also use branching logic. If they use a single column, 
-        # replace consolidate_course(row) with str(row['Your Column Name']).strip().lower()
-        mentors.append({
-            'email': row.get(MENTOR_EMAIL, 'Unknown Email'),
-            'course': consolidate_course(row),
-            'capacity': int(row.get(MENTOR_MAX, 1)), # Default to 1 if max is missing
-            'assigned_mentees': []
-        })
-
-    # 3. Organize Mentees & First Pass (Exact Matches)
-    unassigned_mentees = []
+    # Load data from Excel exports
+    mentors_df = pd.read_excel(mentor_file)
+    mentees_df = pd.read_excel(mentee_file)
     
-    for _, row in mentees_df.iterrows():
-        mentee_email = row.get(MENTEE_EMAIL)
-        mentee_course = consolidate_course(row)
-        mentee_alt_ok = str(row.get(MENTEE_ALT_OK, 'No')).strip().lower()
-        
-        assigned = False
-        
-        # Look for a mentor with the exact course and available capacity
-        for mentor in mentors:
-            if mentor['course'] == mentee_course and len(mentor['assigned_mentees']) < mentor['capacity']:
-                mentor['assigned_mentees'].append(mentee_email)
-                assigned = True
-                break
-        
-        if not assigned:
-            unassigned_mentees.append({
-                'email': mentee_email,
-                'course': mentee_course,
-                'alt_ok': mentee_alt_ok
-            })
-
-    # 4. Second Pass: Alternative Course Matches
-    final_unassigned = []
+    # Clean column names (strip whitespace)
+    mentors_df.columns = [str(c).strip() for c in mentors_df.columns]
+    mentees_df.columns = [str(c).strip() for c in mentees_df.columns]
     
-    for mentee in unassigned_mentees:
-        assigned = False
-        
-        # Check if they are okay with an alternative course 
-        if mentee['alt_ok'] == 'yes':
-            similar_options = SIMILAR_COURSES.get(mentee['course'], [])
-            
-            for mentor in mentors:
-                if mentor['course'] in similar_options and len(mentor['assigned_mentees']) < mentor['capacity']:
-                    mentor['assigned_mentees'].append(mentee['email'])
-                    assigned = True
-                    break
-                    
-        if not assigned:
-            final_unassigned.append(mentee['email'])
+    # --- CONFIGURABLE COLUMN NAMES ---
+    # Update these strings if your Microsoft Forms columns differ slightly
+    M_EMAIL = 'Email2'               # or 'Email2' depending on your form export
+    M_GENDER = 'Gender'
+    M_MAX = 'Max Mentees'
+    M_COURSE = 'Course studying'             # or use faculty/course helper below
+    
+    ME_EMAIL = 'Email2'              # or 'email'
+    ME_GENDER = 'Gender'
+    ME_COURSE = 'Course applying for'
+    
+  
+    
+    
+# sssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss
 
-    # 5. Export to CSV (Format: Mentor Email, Mentee 1, Mentee 2, ...)
-    with open(OUTPUT_FILE, mode='w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        
-        # Write header dynamically based on the maximum capacity found
-        max_capacity = max([m['capacity'] for m in mentors] + [0])
-        headers = ["Mentor Email"] + [f"Mentee {i+1}" for i in range(max_capacity)]
-        writer.writerow(headers)
-        
-        for mentor in mentors:
-            # This constructs a single row placing mentees immediately next to the mentor
-            row = [mentor['email']] + mentor['assigned_mentees']
-            writer.writerow(row)
+import pandas as pd
 
-    print(f"Matching complete! Output saved to {OUTPUT_FILE}")
-    print(f"Total unassigned mentees due to lack of capacity/matches: {len(final_unassigned)}")
-    print(unassigned_mentees)
+
+def run_matching_algorithm(
+    mentor_path="UCAS mentor form.xlsx", mentee_path="UCAS mentee form.xlsx"
+):
+  # Load excel data
+  mentors = pd.read_excel(mentor_path)
+  mentees = pd.read_excel(mentee_path)
+
+  # Standardize column names for flexible matching
+  mentors.columns = (
+      mentors.columns.str.strip().str.lower().str.replace(" ", "_")
+  )
+  mentees.columns = (
+      mentees.columns.str.strip().str.lower().str.replace(" ", "_")
+  )
+
+
+
+  m_email = 'Email2'
+  m_gender = 'Gender'
+  m_max = 'Max Mentees'
+  m_course = 'Course studying'
+
+  u_email = 'Email2'
+  u_gender = 'Gender'
+  u_course = 'Course applying for'
+
+
+  # Normalize values for comparison
+  mentors["gender_clean"] = (
+      mentors[m_gender].astype(str).str.strip().str.lower()
+  )
+  mentees["gender_clean"] = (
+      mentees[u_gender].astype(str).str.strip().str.lower()
+  )
+  mentors["course_clean"] = (
+      mentors[m_course].astype(str).str.strip().str.lower()
+  )
+  mentees["course_clean"] = (
+      mentees[u_course].astype(str).str.strip().str.lower()
+  )
+
+  matched_mentee_emails = set()
+  mentor_allocations = {
+      row[m_email]: {
+          "gender": row[m_gender],
+          "course": row[m_course],
+          "max": int(row[m_max]),
+          "assigned": [],
+      }
+      for _, row in mentors.iterrows()
+  }
+
+  def process_gender_group(gender_prefix):
+    gender_mentors = [
+        email
+        for email, data in mentor_allocations.items()
+        if data["gender"].startswith(gender_prefix)
+    ]
+
+    # Pass 1: Exact course match (1 mentee per mentor matching course)
+    for mentor_email in gender_mentors:
+      m_data = mentor_allocations[mentor_email]
+      if len(m_data["assigned"]) >= m_data["max"]:
+        continue
+
+      available_mentees = mentees[
+          (mentees["gender_clean"].str.startswith(gender_prefix))
+          & (mentees["course_clean"] == m_data["course"])
+          & (~mentees[u_email].isin(matched_mentee_emails))
+      ]
+
+      if not available_mentees.empty:
+        mentee_row = available_mentees.iloc[0]
+        m_email_val = mentee_row[u_email]
+        m_data["assigned"].append(m_email_val)
+        matched_mentee_emails.add(m_email_val)
+
+    # Pass 2: Overflow capacity (fill remaining slots with any unmatched mentees of same gender)
+    for mentor_email in gender_mentors:
+      m_data = mentor_allocations[mentor_email]
+
+      while len(m_data["assigned"]) < m_data["max"]:
+        remaining_mentees = mentees[
+            (mentees["gender_clean"].str.startswith(gender_prefix))
+            & (~mentees[u_email].isin(matched_mentee_emails))
+        ]
+
+        if remaining_mentees.empty:
+          break
+
+        mentee_row = remaining_mentees.iloc[0]
+        m_email_val = mentee_row[u_email]
+        m_data["assigned"].append(m_email_val)
+        matched_mentee_emails.add(m_email_val)
+
+  # Execute passes for brothers ('m') and sisters ('f')
+  process_gender_group("m")
+  process_gender_group("f")
+
+  # 1. Output CSV 1: Mentor assignments matrix
+  match_rows = [
+      [mentor_email] + data["assigned"]
+      for mentor_email, data in mentor_allocations.items()
+  ]
+  max_mentees = (
+      max(len(data["assigned"]) for data in mentor_allocations.values())
+      if mentor_allocations
+      else 0
+  )
+  col_names = ["mentor_email"] + [
+      f"mentee_{i+1}" for i in range(max_mentees)
+  ]
+  padded_rows = [
+      row + [""] * (len(col_names) - len(row)) for row in match_rows
+  ]
+
+  pd.DataFrame(padded_rows, columns=col_names).to_csv(
+      "mentor_mentee_matches.csv", index=False
+  )
+
+  # 2. Output CSV 2: Unmatched mentees
+  unmatched_df = mentees[~mentees[u_email].isin(matched_mentee_emails)][
+      [u_email, u_course, u_gender]
+  ]
+  unmatched_df.to_csv("unmatched_mentees.csv", index=False)
+
+  # 3. Output CSV 3: Under-utilized mentors with remaining capacity
+  under_utilized = [
+      {
+          "mentor_email": email,
+          "course": data["course"],
+          "max_capacity": data["max"],
+          "assigned_count": len(data["assigned"]),
+          "remaining_capacity": data["max"] - len(data["assigned"]),
+      }
+      for email, data in mentor_allocations.items()
+      if len(data["assigned"]) < data["max"]
+  ]
+
+  pd.DataFrame(under_utilized).to_csv(
+      "under_utilized_mentors.csv", index=False
+  )
+  print("Matching complete. Output files generated successfully.")
+
 
 if __name__ == "__main__":
-    main()
+  run_matching_algorithm()
