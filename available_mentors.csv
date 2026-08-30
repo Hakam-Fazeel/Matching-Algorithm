@@ -1,5 +1,4 @@
-Mentor_Email,Course_Studying,Current_Assigned,Max_Mentees
-2@2,medicine,2,3
-4@4,chemistry,1,2
-5@5,chemistry,1,2
-8@8,chemistry,1,3
+Mentor_Email,Course,Current_Assigned,Max_Mentees
+d@d,Mechanical Engineering,3,4
+g@g,Mechanical Engineering,3,4
+i@i,Chemistry,2,3
