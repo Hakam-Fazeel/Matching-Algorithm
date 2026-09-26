@@ -145,4 +145,4 @@ def match_mentors_with_interests(mentors_file, mentees_file):
     print('Matching complete! Generated 3 CSV files successfully.')
 
 # Run the script using the Google Form CSV names you specified
-match_mentors_with_interests('27 - Mentors.csv', '27 - Mentees.csv')
+match_mentors_with_interests('Cleaned Mentors.csv', 'Cleaned Mentees.csv')
