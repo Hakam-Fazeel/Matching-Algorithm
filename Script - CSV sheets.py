@@ -122,8 +122,8 @@ def match_mentors_with_interests(mentors_file, mentees_file):
     matched_df.to_csv('mentor_mentee_matches.csv', index=False)
 
     # 2. Generate CSV file 2: Unmatched mentees and their requested course
-    unmatched_df = mentees_df[~mentees_df['Matched']][[mentee_email_col, mentee_course_col]]
-    unmatched_df.columns = ['Mentee_Email', 'Course']
+    unmatched_df = mentees_df[~mentees_df['Matched']][[mentee_email_col, mentee_course_col, mentee_gender_col]]
+    unmatched_df.columns = ['Mentee_Email', 'Course', 'Gender']
     unmatched_df.to_csv('unmatched_mentees.csv', index=False)
 
     # 3. Generate CSV file 3: Mentors capable of taking another mentee and their course
@@ -137,6 +137,7 @@ def match_mentors_with_interests(mentors_file, mentees_file):
                 'Course': row[mentor_course_col],
                 'Current_Assigned': current_assigned,
                 'Max_Mentees': max_m,
+                'Gender': row[mentor_gender_col],
             })
 
     available_mentors_df = pd.DataFrame(available_mentors)
